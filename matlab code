@@ -1,0 +1,1223 @@
+dataTable = readtable("materialdata.xlsx", 'Sheet', 'Sheet1','Range','B2:N7');
+fprintf('Welcome to the Material Properties Information System\n');
+while true
+        fprintf('Please select an option:\n');
+    fprintf('1. Program 1 (Calculate S and Q matrices for a given material and orientation)\n');
+    fprintf('2. Program 2 (Calculate on-axis stress and strain,off-axis stress and strain)\n');
+    fprintf('3. Program 3 (Calculate the overall in-plane modulus [A] and in-plane compliance [a] )\n');
+    fprintf('4. Program 4 (Calculate the overall in-plane flexural modulus [D] and in-plane flexural compliance [d] )\n');
+    fprintf('5. Program 5 (Identify ply failure with various failure criteria)\n');
+
+    choice = input('Enter the number corresponding to your choice: ');
+
+    if choice == 1
+        fprintf('You selected Program 1\n');
+fprintf('Please select a material:\n');
+S=zeros(3,3);
+
+
+
+ for i = 1:6
+     fprintf('%d. %s\n', i, string(dataTable{i,1}));
+ end
+c = input('Enter the number corresponding to your choice: ');
+fprintf('You selected %s\n', string(dataTable{c,1}));
+fprintf('Ex=%d GPa\nEy=%d GPa\nEs=%d GPa\nnux=%d\nXt=%d GPa\nXc=%d GPa\nYt=%d GPa\nYc=%d GPa\nS=%d GPa\nRho=%d kg/m^3\nh0=%d mm\nnuy=%d\n',double(dataTable{c,2}),double(dataTable{c,3}),double(dataTable{c,4}),double(dataTable{c,5}),double(dataTable{c,6}),double(dataTable{c,7}),double(dataTable{c,8}),double(dataTable{c,9}),double(dataTable{c,10}),double(dataTable{c,11}),double(dataTable{c,12}),double(dataTable{c,13})); 
+while true
+    n = input('Enter the total number of layers (up to 24): ');
+    if isnumeric(n) && isscalar(n) && n >= 1 && n <= 24
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number between 1 and 24.\n');
+    end
+end
+num_orientations = n/2;
+Soff_all = zeros(3, 3, ceil(n/2));
+Qoff_all = zeros(3, 3, ceil(n/2));
+plyThickness = double(dataTable{c, 12});
+fprintf('Ply Thickness (in mm): %.2f mm\n', plyThickness);
+if n == 1
+    while true
+        plyOrientations = input('Enter the orientation of the single ply (in degrees): ');
+        if isnumeric(plyOrientations) && isscalar(plyOrientations)
+            break; 
+        else
+            fprintf('Invalid input. Please enter a number.\n');
+        end
+    end
+else
+ first_set_orientations = zeros(1, floor(n/2));
+    for i = 1:floor(n/2)
+        while true
+            first_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i));
+            if isnumeric(first_set_orientations(i)) && isscalar(first_set_orientations(i))
+                break;  % Exit the loop if the input is valid
+            else
+                fprintf('Invalid input. Please enter a number.\n');
+            end
+        end
+    end
+    if mod(n, 2) == 0
+        second_set_orientations = fliplr(first_set_orientations);
+    else
+        % Prompt for the second set of ply orientations if 'n' is odd
+        second_set_orientations = zeros(1, floor(n/2));
+        for i = 1:floor(n/2)
+            while true
+                second_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i + floor(n/2)));
+                if isnumeric(second_set_orientations(i)) && isscalar(second_set_orientations(i))
+                    break;  % Exit the loop if the input is valid
+                else
+                    fprintf('Invalid input. Please enter a number.\n');
+                end
+            end
+        end
+    end
+    plyOrientations = [first_set_orientations, second_set_orientations];
+end
+while true
+    zc = input('Enter the central honeycomb core thickness (2zc in mm): ');
+    if isnumeric(zc) && isscalar(zc)
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number.\n');
+    end
+end
+fprintf('Geometry Parameters:\n');
+fprintf('Total number of layers: %d\n', n);
+fprintf('Ply Thickness (in mm): %.2f mm\n', plyThickness);
+fprintf('Ply Orientations (in degrees):\n');
+
+for i = 1:n
+    fprintf('Ply %d: %.2f degrees\n', i, plyOrientations(i));
+end
+fprintf('Central Honeycomb Core Thickness (2zc in mm): %.2f mm\n', zc);
+S(1,1)=1/double(dataTable{c,2});
+S(1,2)=-double(dataTable{c,13})/double(dataTable{c,3});
+S(2,1)=-double(dataTable{c,5})/double(dataTable{c,2});
+S(2,2)=1/double(dataTable{c,3});
+S(3,3)=1/double(dataTable{c,4});
+disp('On axis,(S) Compliance form matrix');
+S=S*10^3;
+disp(S);disp('All units of ''S'' matrix are in 1/Tpa');fprintf('\n')
+Q=(S^-1)*10^3;
+disp('On axis,(Q) modulus form matrix');
+disp(Q);disp('All units of ''Q'' matrix are in GPa');fprintf('\n')
+
+
+for i = 1:(n/2)
+
+    d = plyOrientations(i);
+U1s = 0.125 * (3 * S(1, 1) + 3 * S(2, 2) + 2 * S(1, 2)+S(3,3));
+U2s = 0.5 * (S(1, 1) - S(2, 2));
+U3s = 0.125 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)-S(3,3));
+U4s = 0.125 * (S(1, 1) + S(2, 2) + 6 * S(1, 2)-S(3,3));
+U5s = 0.5 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)+S(3,3));
+
+U1q=0.125*(3*Q(1,1)+3*Q(2,2)+2*Q(1,2)+4*Q(3,3));
+U2q=0.5*(Q(1,1)-Q(2,2));
+U3q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)-4*Q(3,3));
+U4q=0.125*(Q(1,1)+Q(2,2)+6*Q(1,2)-4*Q(3,3));
+U5q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)+4*Q(3,3));
+
+Soff(1,1)=U1s+U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(1,2)=U4s-U3s*cosd(4*d);
+Soff(1,3)=U2s*sind(2*d)+2*U3s*sind(4*d);
+Soff(2,1)=Soff(1,2);
+Soff(2,2)=U1s-U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(2,3)=U2s*sind(2*d)-2*U3s*sind(4*d);
+Soff(3,1)=Soff(1,3);
+Soff(3,2)=Soff(2,3);
+Soff(3,3)=U5s-4*U3s*cosd(4*d);
+
+
+Qoff(1,1)=U1q+U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(1,2)=U4q-U3q*cosd(4*d);
+Qoff(1,3)=0.5*U2q*sind(2*d)+U3q*sind(4*d);
+Qoff(2,1)=Qoff(1,2);
+Qoff(2,2)=U1q-U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(2,3)=0.5*U2q*sind(2*d)-U3q*sind(4*d);
+Qoff(3,1)=Qoff(1,3);
+Qoff(3,2)=Qoff(2,3);
+Qoff(3,3)=U5q-U3q*cosd(4*d);
+
+Soff_all(:,:,i) = Soff;
+Qoff_all(:,:,i) = Qoff;
+
+end
+fprintf('Values of Us for compliance in the unit 1/TPa\n');
+fprintf('U1s: %.2f 1/TPa\n', U1s);
+fprintf('U2s: %.2f 1/TPa\n', U2s);
+fprintf('U3s: %.2f 1/TPa\n', U3s);
+fprintf('U4s: %.2f 1/TPa\n', U4s);
+fprintf('U5s: %.2f 1/TPa\n', U5s);
+fprintf('Values of Us for modulusin the unit GPa\n');
+fprintf('U1q: %.2f GPa\n', U1q);
+fprintf('U2q: %.2f GPa\n', U2q);
+fprintf('U3q: %.2f GPa\n', U3q);
+fprintf('U4q: %.2f GPa\n', U4q);
+fprintf('U5q: %.2f GPa\n', U5q);
+for i = 1:(n/2)
+    fprintf('Off-axis (S) Compliance form matrix in 1/TPa for orientation %.2f degrees:\n', plyOrientations(i));
+    disp(Soff_all(:, :, i));
+
+    fprintf('Off-axis (Q) Modulus form matrix in GPa for orientation %.2f degrees:\n', plyOrientations(i));
+    disp(Qoff_all(:, :, i));
+end
+
+
+    elseif choice == 2
+
+       fprintf('You selected Program 2\n');
+fprintf('Please select a material:\n');
+ for i = 1:6
+     fprintf('%d. %s\n', i, string(dataTable{i,1}));
+ end
+c = input('Enter the number corresponding to your choice: ');
+fprintf('You selected %s\n', string(dataTable{c,1}));
+fprintf('Ex=%d GPa\nEy=%d GPa\nEs=%d GPa\nnux=%d\nXt=%d GPa\nXc=%d GPa\nYt=%d GPa\nYc=%d GPa\nS=%d GPa\nRho=%d kg/m^3\nh0=%d mm\nnuy=%d\n',double(dataTable{c,2}),double(dataTable{c,3}),double(dataTable{c,4}),double(dataTable{c,5}),double(dataTable{c,6}),double(dataTable{c,7}),double(dataTable{c,8}),double(dataTable{c,9}),double(dataTable{c,10}),double(dataTable{c,11}),double(dataTable{c,12}),double(dataTable{c,13})); 
+S=zeros(3,3);
+Q=zeros(3,3);
+
+n = input('Enter the total number of plies: ');
+
+if n == 1
+    while true
+        plyOrientations = input('Enter the orientation of the single ply (in degrees): ');
+        if isnumeric(plyOrientations) && isscalar(plyOrientations)
+            break; 
+        else
+            fprintf('Invalid input. Please enter a number.\n');
+        end
+    end
+else
+    fprintf('Invalid input. Program 2 is designed for a single ply.\n');
+end
+fprintf('Ply Orientation (in degrees): %.2f\n', plyOrientations);
+
+S(1,1)=1/double(dataTable{c,2});
+S(1,2)=-double(dataTable{c,13})/double(dataTable{c,3});
+S(2,1)=-double(dataTable{c,5})/double(dataTable{c,2});
+S(2,2)=1/double(dataTable{c,3});
+S(3,3)=1/double(dataTable{c,4});
+S=S*10^3;
+disp('On axis,(S) Compliance form matrix');fprintf('\n')
+disp(S);disp('All units of ''S'' matrix are in 1/Tpa');fprintf('\n')
+
+d = plyOrientations;
+    U1s = 0.125 * (3 * S(1,1) + 3 * S(2,2) + 2 * S(1,2) + S(3,3));
+    U2s = 0.5 * (S(1,1) - S(2,2));
+    U3s = 0.125 * (S(1,1) + S(2,2) - 2 * S(1,2) - S(3,3));
+    U4s = 0.125 * (S(1,1) + S(2,2) + 6 * S(1,2) - S(3,3));
+    U5s = 0.5 * (S(1,1) + S(2,2) - 2 * S(1,2) + S(3,3));
+
+Soff(1,1)=(U1s+(U2s*cosd(2*d))+(U3s*cosd(4*d)));
+Soff(1,2)=U4s-U3s*cosd(4*d);
+Soff(1,3)=U2s*sind(2*d)+2*U3s*sind(4*d);
+Soff(2,1)=Soff(1,2);
+Soff(2,2)=U1s-U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(2,3)=U2s*sind(2*d)-2*U3s*sind(4*d);
+Soff(3,1)=Soff(1,3);
+Soff(3,2)=Soff(2,3);
+Soff(3,3)=U5s-4*U3s*cosd(4*d);
+
+    fprintf('Please enter the values for three off-axis stresses in MPa:\n');
+    offstress1 = input('Off axis Stress 1 (in MPa): ');
+    offstress2 = input('Off axis Stress 2 (in MPa): ');
+    offstress3 = input('Off axis Stress 6 (in MPa): ');
+    offstrain1 = (offstress1*Soff(1,1)+offstress2*Soff(1, 2)+offstress3*Soff(1, 3))/1000000;
+    offstrain2 = (offstress1*Soff(2,1)+offstress2*Soff(2, 2)+offstress3*Soff(2, 3))/1000000;
+    offstrain3 = (offstress1*Soff(3,1)+offstress2*Soff(3, 2)+offstress3*Soff(3, 3))/1000000;
+    onstressx = (0.5*(offstress1+offstress2))+(0.5*(offstress1-offstress2))*cosd(2*d)+(offstress3*sind(2*d));
+    onstressy = (0.5*(offstress1+offstress2))-(0.5*(offstress1-offstress2))*cosd(2*d)-(offstress3*sind(2*d));
+    onstresss = -(0.5*(offstress1-offstress2))*sind(2*d)+(offstress3*cosd(2*d));
+    onstrainx = ((S(1,1)*onstressx)+(S(1,2)*onstressy))/1000000;
+    onstrainy = ((S(2,1)*onstressx)+(S(2,2)*onstressy))/1000000;
+    onstrains = (S(3,3)*onstresss)/1000000;
+
+    fprintf('Values of Us for compliance\n');
+fprintf('U1s: %.2f 1/TPa\n', U1s);
+fprintf('U2s: %.2f 1/TPa\n', U2s);
+fprintf('U3s: %.2f 1/TPa\n', U3s);
+fprintf('U4s: %.2f 1/TPa\n', U4s);
+fprintf('U5s: %.2f 1/TPa\n', U5s);
+   
+    fprintf('Off-axis (Soff) Compliance form matrix:\n');
+        disp(Soff);disp('All units of ''Soff'' matrix are in 1/Tpa');fprintf('\n')
+
+
+fprintf('Off-axis Stress 1: %.2f MPa\n', offstress1);
+fprintf('Off-axis Stress 2: %.2f MPa\n', offstress2);
+fprintf('Off-axis Stress 6: %.2f MPa\n', offstress3);
+fprintf('Off-axis Stresses (in MPa)\n\n');
+
+fprintf('Off-axis Strain 1: %.6f \n', offstrain1);
+fprintf('Off-axis Strain 2: %.6f \n', offstrain2);
+fprintf('Off-axis Strain 6: %.6f \n\n', offstrain3);
+fprintf('Off-axis Strain has no unit \n\n');
+
+fprintf('On-axis Stress x: %.2f MPa\n', onstressx);
+fprintf('On-axis Stress y: %.2f MPa\n', onstressy);
+fprintf('On-axis Stress s: %.2f MPa\n\n', onstresss);
+fprintf('On-axis Stresses (in MPa)\n\n');
+
+fprintf('On-axis Strain x: %.6f \n', onstrainx);
+fprintf('On-axis Strain y: %.6f \n', onstrainy);
+fprintf('On-axis Strain s: %.6f \n\n', onstrains);
+fprintf('On-axis Strain has no unit \n\n');
+
+    elseif choice == 3
+
+       fprintf('You selected Program 3\n');
+fprintf('Please select a material:\n');
+ for i = 1:6
+     fprintf('%d. %s\n', i, string(dataTable{i,1}));
+ end
+c = input('Enter the number corresponding to your choice: ');
+fprintf('You selected %s\n', string(dataTable{c,1}));
+fprintf('Ex=%d GPa\nEy=%d GPa\nEs=%d GPa\nnux=%d\nXt=%d GPa\nXc=%d GPa\nYt=%d GPa\nYc=%d GPa\nS=%d GPa\nRho=%d kg/m^3\nh0=%d mm\nnuy=%d\n',double(dataTable{c,2}),double(dataTable{c,3}),double(dataTable{c,4}),double(dataTable{c,5}),double(dataTable{c,6}),double(dataTable{c,7}),double(dataTable{c,8}),double(dataTable{c,9}),double(dataTable{c,10}),double(dataTable{c,11}),double(dataTable{c,12}),double(dataTable{c,13})); 
+S=zeros(3,3);
+
+while true
+    n = input('Enter the total number of layers (up to 24): ');
+    if isnumeric(n) && isscalar(n) && n >= 1 && n <= 24
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number between 1 and 24.\n');
+    end
+end
+num_orientations = n/2;
+Soff_all = zeros(3, 3, ceil(n/2));
+Qoff_all = zeros(3, 3, ceil(n/2));
+
+if n == 1
+    while true
+        plyOrientations = input('Enter the orientation of the single ply (in degrees): ');
+        if isnumeric(plyOrientations) && isscalar(plyOrientations)
+            break; 
+        else
+            fprintf('Invalid input. Please enter a number.\n');
+        end
+    end
+else
+ first_set_orientations = zeros(1, floor(n/2));
+    for i = 1:floor(n/2)
+        while true
+            first_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i));
+            if isnumeric(first_set_orientations(i)) && isscalar(first_set_orientations(i))
+                break;  % Exit the loop if the input is valid
+            else
+                fprintf('Invalid input. Please enter a number.\n');
+            end
+        end
+    end
+    if mod(n, 2) == 0
+        second_set_orientations = fliplr(first_set_orientations);
+    else
+        % Prompt for the second set of ply orientations if 'n' is odd
+        second_set_orientations = zeros(1, floor(n/2));
+        for i = 1:floor(n/2)
+            while true
+                second_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i + floor(n/2)));
+                if isnumeric(second_set_orientations(i)) && isscalar(second_set_orientations(i))
+                    break;  % Exit the loop if the input is valid
+                else
+                    fprintf('Invalid input. Please enter a number.\n');
+                end
+            end
+        end
+    end
+    plyOrientations = [first_set_orientations, second_set_orientations];
+end
+fprintf('Geometry Parameters:\n');
+fprintf('Total number of layers: %d\n', n);
+
+fprintf('Ply Orientations (in degrees):\n');
+
+for i = 1:n
+    fprintf('Ply %d: %.2f degrees\n', i, plyOrientations(i));
+end
+S(1,1)=1/double(dataTable{c,2});
+S(1,2)=-double(dataTable{c,13})/double(dataTable{c,3});
+S(2,1)=-double(dataTable{c,5})/double(dataTable{c,2});
+S(2,2)=1/double(dataTable{c,3});
+S(3,3)=1/double(dataTable{c,4});
+disp('On axis,(S) Compliance form matrix');
+S=S*10^3;
+disp(S);disp('All units of ''S'' matrix are in 1/Tpa');fprintf('\n')
+Q=(S^-1)*10^3;
+disp('On axis,(Q) modulus form matrix');
+disp(Q);disp('All units of ''Q'' matrix are in GPa');fprintf('\n')
+for i = 1:(n/2)
+
+d = plyOrientations(i);
+U1s = 0.125 * (3 * S(1, 1) + 3 * S(2, 2) + 2 * S(1, 2)+S(3,3));
+U2s = 0.5 * (S(1, 1) - S(2, 2));
+U3s = 0.125 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)-S(3,3));
+U4s = 0.125 * (S(1, 1) + S(2, 2) + 6 * S(1, 2)-S(3,3));
+U5s = 0.5 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)+S(3,3));
+
+U1q=0.125*(3*Q(1,1)+3*Q(2,2)+2*Q(1,2)+4*Q(3,3));
+U2q=0.5*(Q(1,1)-Q(2,2));
+U3q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)-4*Q(3,3));
+U4q=0.125*(Q(1,1)+Q(2,2)+6*Q(1,2)-4*Q(3,3));
+U5q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)+4*Q(3,3));
+
+Soff(1,1)=U1s+U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(1,2)=U4s-U3s*cosd(4*d);
+Soff(1,3)=U2s*sind(2*d)+2*U3s*sind(4*d);
+Soff(2,1)=Soff(1,2);
+Soff(2,2)=U1s-U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(2,3)=U2s*sind(2*d)-2*U3s*sind(4*d);
+Soff(3,1)=Soff(1,3);
+Soff(3,2)=Soff(2,3);
+Soff(3,3)=U5s-4*U3s*cosd(4*d);
+
+
+Qoff(1,1)=U1q+U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(1,2)=U4q-U3q*cosd(4*d);
+Qoff(1,3)=0.5*U2q*sind(2*d)+U3q*sind(4*d);
+Qoff(2,1)=Qoff(1,2);
+Qoff(2,2)=U1q-U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(2,3)=0.5*U2q*sind(2*d)-U3q*sind(4*d);
+Qoff(3,1)=Qoff(1,3);
+Qoff(3,2)=Qoff(2,3);
+Qoff(3,3)=U5q-U3q*cosd(4*d);
+
+Soff_all(:,:,i) = Soff;
+Qoff_all(:,:,i) = Qoff;
+end
+fprintf('Values of Us for compliance in the unit 1/TPa\n');
+fprintf('U1s: %.2f 1/TPa\n', U1s);
+fprintf('U2s: %.2f 1/TPa\n', U2s);
+fprintf('U3s: %.2f 1/TPa\n', U3s);
+fprintf('U4s: %.2f 1/TPa\n', U4s);
+fprintf('U5s: %.2f 1/TPa\n', U5s);
+fprintf('Values of Us for modulus in the unit GPa\n');
+fprintf('U1q: %.2f GPa\n', U1q);
+fprintf('U2q: %.2f GPa\n', U2q);
+fprintf('U3q: %.2f GPa\n', U3q);
+fprintf('U4q: %.2f GPa\n', U4q);
+fprintf('U5q: %.2f GPa\n', U5q);
+
+V1=0;
+V2=0;
+V3=0;
+V4=0;
+h=(double(dataTable{c,12})*n)/1000;
+v=(2*(10^-3)*double(dataTable{c,12}))/h;
+for i = 1:(n/2)
+    d = plyOrientations(i);
+    V1 = V1 + cosd(2*(d));
+    V2 = V2 + cosd(4*(d));
+    V3 = V3 + sind(2*(d));
+    V4 = V4 + sind(4*(d));
+end
+V1=V1*v;
+V2=V2*v;
+V3=V3*v;
+V4=V4*v;
+fprintf('volume fraction : %.4f \n', v);
+fprintf('Values of normalized geometric factors (dimensionless)\n');
+fprintf('V*1: %.4f \n', V1);
+fprintf('V*2: %.2f \n', V2);
+fprintf('V*3: %.2f \n', V3);
+fprintf('V*4: %.2f \n', V4);
+A=zeros(3,3);
+
+A(1,1)=h*(U1q+(V1*U2q)+(V2*U3q));
+A(1,2)=h*(U4q-(V2*U3q));
+A(1,3)=h*((0.5*V3*U2q)+(V4*U3q));
+A(2,1)=A(1,2);
+A(2,2)=h*(U1q-(V1*U2q)+(V2*U3q));
+A(2,3)=h*((0.5*V3*U2q)-(V4*U3q));
+A(3,1)=A(1,3);
+A(3,2)=A(2,3);
+A(3,3)=h*(U5q-(V2*U3q));
+a=(A^-1);
+disp('Normalized in-plane modulus matrix [A]');fprintf('\n')
+disp(A);disp('All units of ''A'' matrix are in GPa*m');fprintf('\n')
+disp('Normalized in-plane compliance matrix [a]');fprintf('\n')
+disp(a);disp('All units of ''a'' matrix are in 1/GPa*m)');fprintf('\n')
+
+N1 = input('Enter applied stress N1 (in Pa*m): ');
+N2 = input('Enter applied stress N2 (in Pa*m): ');
+N3 = input('Enter applied stress N3 (in Pa*m): ');fprintf('\n')
+fprintf('Applied Stress N1: %.2f Pa*m\n', N1);
+fprintf('Applied Stress N2: %.2f Pa*m\n', N2);
+fprintf('Applied Stress N3: %.2f Pa*m\n', N3);fprintf('\n')
+
+Offaxisstrain1=((N1*a(1,1))+(N2*a(1,2))+(N3*a(1,3)))/1000000000;
+Offaxisstrain2=((N1*a(2,1))+(N2*a(2,2))+(N3*a(2,3)))/1000000000;
+Offaxisstrain3=((N1*a(3,1))+(N2*a(3,2))+(N3*a(3,3)))/1000000000;
+
+fprintf('Values of Off-axis strain (no-unit)\n');
+    fprintf('Off-axis Strain 1: %.6f \n', Offaxisstrain1);
+    fprintf('Off-axis Strain 2: %.6f \n', Offaxisstrain2);
+    fprintf('Off-axis Strain 3: %.6f \n', Offaxisstrain3);
+     fprintf('\n');
+
+for i = 1:(n/2)
+
+d = plyOrientations(i);
+
+onaxisplystrainx=(0.5*(Offaxisstrain1+Offaxisstrain2))+((0.5*(Offaxisstrain1-Offaxisstrain2))*cosd(2*d))+((0.5*Offaxisstrain3)*sind(2*d));
+onaxisplystrainy=(0.5*(Offaxisstrain1+Offaxisstrain2))-((0.5*(Offaxisstrain1-Offaxisstrain2))*cosd(2*d))-((0.5*Offaxisstrain3)*sind(2*d));
+onaxisplystrainz=(Offaxisstrain3*cosd(2*d))-((Offaxisstrain1-Offaxisstrain2)*sind(2*d));
+
+    fprintf('For Ply %d with the Orientation %.2f degrees:\n', i, plyOrientations(i));fprintf('\n');
+    fprintf('On-axis Strain x: %.6f \n', onaxisplystrainx);
+    fprintf('On-axis Strain y: %.6f \n', onaxisplystrainy);
+    fprintf('On-axis Strain z: %.6f \n', onaxisplystrainz);
+
+onaxisplystressx=(onaxisplystrainx*Q(1,1))+(onaxisplystrainy*Q(1,2));
+onaxisplystressy=(onaxisplystrainx*Q(2,1))+(onaxisplystrainy*Q(2,2));
+onaxisplystressz=onaxisplystrainz*Q(3,3);
+fprintf('\n');
+    fprintf('On-axis Stress x: %.6f GPa\n', onaxisplystressx);
+    fprintf('On-axis Stress y: %.6f GPa\n', onaxisplystressy);
+    fprintf('On-axis Stress z: %.6f GPa\n', onaxisplystressz);
+ fprintf('\n');
+end
+%Program 4
+elseif choice == 4
+
+
+fprintf('You selected Program 4\n');
+fprintf('Please select a material:\n');
+ for i = 1:6
+     fprintf('%d. %s\n', i, string(dataTable{i,1}));
+ end
+c = input('Enter the number corresponding to your choice: ');
+fprintf('You selected %s\n', string(dataTable{c,1}));
+fprintf('Ex=%d GPa\nEy=%d GPa\nEs=%d GPa\nnux=%d\nXt=%d GPa\nXc=%d GPa\nYt=%d GPa\nYc=%d GPa\nS=%d GPa\nRho=%d kg/m^3\nh0=%d mm\nnuy=%d\n',double(dataTable{c,2}),double(dataTable{c,3}),double(dataTable{c,4}),double(dataTable{c,5}),double(dataTable{c,6}),double(dataTable{c,7}),double(dataTable{c,8}),double(dataTable{c,9}),double(dataTable{c,10}),double(dataTable{c,11}),double(dataTable{c,12}),double(dataTable{c,13})); 
+S=zeros(3,3);
+
+while true
+    n = input('Enter the total number of layers (up to 24): ');
+    if isnumeric(n) && isscalar(n) && n >= 1 && n <= 24
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number between 1 and 24.\n');
+    end
+end
+num_orientations = n/2;
+Soff_all = zeros(3, 3, ceil(n/2));
+Qoff_all = zeros(3, 3, ceil(n/2));
+
+if n == 1
+    while true
+        plyOrientations = input('Enter the orientation of the single ply (in degrees): ');
+        if isnumeric(plyOrientations) && isscalar(plyOrientations)
+            break; 
+        else
+            fprintf('Invalid input. Please enter a number.\n');
+        end
+    end
+else
+ first_set_orientations = zeros(1, floor(n/2));
+    for i = 1:floor(n/2)
+        while true
+            first_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i));
+            if isnumeric(first_set_orientations(i)) && isscalar(first_set_orientations(i))
+                break;  % Exit the loop if the input is valid
+            else
+                fprintf('Invalid input. Please enter a number.\n');
+            end
+        end
+    end
+    if mod(n, 2) == 0
+        second_set_orientations = fliplr(first_set_orientations);
+    else
+        % Prompt for the second set of ply orientations if 'n' is odd
+        second_set_orientations = zeros(1, floor(n/2));
+        for i = 1:floor(n/2)
+            while true
+                second_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i + floor(n/2)));
+                if isnumeric(second_set_orientations(i)) && isscalar(second_set_orientations(i))
+                    break;  % Exit the loop if the input is valid
+                else
+                    fprintf('Invalid input. Please enter a number.\n');
+                end
+            end
+        end
+    end
+    plyOrientations = [first_set_orientations, second_set_orientations];
+end
+fprintf('Geometry Parameters:\n');
+fprintf('Total number of layers: %d\n', n);
+
+fprintf('Ply Orientations (in degrees):\n');
+
+for i = 1:n
+    fprintf('Ply %d: %.2f degrees\n', i, plyOrientations(i));
+end
+plyThickness = (double(dataTable{c, 12}))/1000;
+fprintf('Ply Thickness (in m): %.6f m\n', plyThickness);fprintf('\n');
+while true
+    zc = input('Enter the half core thickness (zc in m): ');
+    if isnumeric(zc) && isscalar(zc)
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number.\n');
+    end
+end
+S(1,1)=1/double(dataTable{c,2});
+S(1,2)=-double(dataTable{c,13})/double(dataTable{c,3});
+S(2,1)=-double(dataTable{c,5})/double(dataTable{c,2});
+S(2,2)=1/double(dataTable{c,3});
+S(3,3)=1/double(dataTable{c,4});
+disp('On axis,(S) Compliance form matrix');
+S=S*10^3;
+disp(S);disp('All units of ''S'' matrix are in 1/Tpa');fprintf('\n')
+Q=(S^-1)*10^3;
+disp('On axis,(Q) modulus form matrix');
+disp(Q);disp('All units of ''Q'' matrix are in GPa');fprintf('\n')
+for i = 1:(n/2)
+
+d = plyOrientations(i);
+U1s = 0.125 * (3 * S(1, 1) + 3 * S(2, 2) + 2 * S(1, 2)+S(3,3));
+U2s = 0.5 * (S(1, 1) - S(2, 2));
+U3s = 0.125 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)-S(3,3));
+U4s = 0.125 * (S(1, 1) + S(2, 2) + 6 * S(1, 2)-S(3,3));
+U5s = 0.5 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)+S(3,3));
+
+U1q=0.125*(3*Q(1,1)+3*Q(2,2)+2*Q(1,2)+4*Q(3,3));
+U2q=0.5*(Q(1,1)-Q(2,2));
+U3q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)-4*Q(3,3));
+U4q=0.125*(Q(1,1)+Q(2,2)+6*Q(1,2)-4*Q(3,3));
+U5q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)+4*Q(3,3));
+
+Soff(1,1)=U1s+U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(1,2)=U4s-U3s*cosd(4*d);
+Soff(1,3)=U2s*sind(2*d)+2*U3s*sind(4*d);
+Soff(2,1)=Soff(1,2);
+Soff(2,2)=U1s-U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(2,3)=U2s*sind(2*d)-2*U3s*sind(4*d);
+Soff(3,1)=Soff(1,3);
+Soff(3,2)=Soff(2,3);
+Soff(3,3)=U5s-4*U3s*cosd(4*d);
+
+
+Qoff(1,1)=U1q+U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(1,2)=U4q-U3q*cosd(4*d);
+Qoff(1,3)=0.5*U2q*sind(2*d)+U3q*sind(4*d);
+Qoff(2,1)=Qoff(1,2);
+Qoff(2,2)=U1q-U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(2,3)=0.5*U2q*sind(2*d)-U3q*sind(4*d);
+Qoff(3,1)=Qoff(1,3);
+Qoff(3,2)=Qoff(2,3);
+Qoff(3,3)=U5q-U3q*cosd(4*d);
+
+Soff_all(:,:,i) = Soff;
+Qoff_all(:,:,i) = Qoff;
+end
+fprintf('Values of Us for compliance in the unit 1/TPa\n');
+fprintf('U1s: %.2f 1/TPa\n', U1s);
+fprintf('U2s: %.2f 1/TPa\n', U2s);
+fprintf('U3s: %.2f 1/TPa\n', U3s);
+fprintf('U4s: %.2f 1/TPa\n', U4s);
+fprintf('U5s: %.2f 1/TPa\n', U5s);
+fprintf('Values of Us for modulus in the unit GPa\n');
+fprintf('U1q: %.2f GPa\n', U1q);
+fprintf('U2q: %.2f GPa\n', U2q);
+fprintf('U3q: %.2f GPa\n', U3q);
+fprintf('U4q: %.2f GPa\n', U4q);
+fprintf('U5q: %.2f GPa\n', U5q);
+
+V1=0;
+V2=0;
+V3=0;
+V4=0;
+h=(double(dataTable{c,12})*n)/1000;
+v=(2*(10^-3)*double(dataTable{c,12}))/h;
+for i = 1:(n/2)
+    d = plyOrientations(i);
+    V1 = V1 + cosd(2*(d));
+    V2 = V2 + cosd(4*(d));
+    V3 = V3 + sind(2*(d));
+    V4 = V4 + sind(4*(d));
+end
+V1=V1*v;
+V2=V2*v;
+V3=V3*v;
+V4=V4*v;
+fprintf('volume fraction : %.4f \n', v);
+fprintf('Values of normalized geometric factors (dimensionless)\n');
+fprintf('V*1: %.4f \n', V1);
+fprintf('V*2: %.2f \n', V2);
+fprintf('V*3: %.2f \n', V3);
+fprintf('V*4: %.2f \n', V4);
+A=zeros(3,3);
+
+A(1,1)=h*(U1q+(V1*U2q)+(V2*U3q));
+A(1,2)=h*(U4q-(V2*U3q));
+A(1,3)=h*((0.5*V3*U2q)+(V4*U3q));
+A(2,1)=A(1,2);
+A(2,2)=h*(U1q-(V1*U2q)+(V2*U3q));
+A(2,3)=h*((0.5*V3*U2q)-(V4*U3q));
+A(3,1)=A(1,3);
+A(3,2)=A(2,3);
+A(3,3)=h*(U5q-(V2*U3q));
+a=(A^-1);
+disp('Normalized in-plane modulus matrix [A]');fprintf('\n')
+disp(A);disp('All units of ''A'' matrix are in GPa*m');fprintf('\n')
+disp('Normalized in-plane compliance matrix [a]');fprintf('\n')
+disp(a);disp('All units of ''a'' matrix are in 1/GPa*m)');fprintf('\n')
+
+%calculating flexural modulus and compliance
+h1=h+(2*zc);
+zcstar=(2*zc)/h1;
+hstar=((h1^3)/12)*(1-(zcstar^3));
+z1 = (((7*plyThickness)+zc)^3)-(((6*plyThickness)+zc)^3); 
+z2 = (((6*plyThickness)+zc)^3)-(((5*plyThickness)+zc)^3); 
+z3 = (((5*plyThickness)+zc)^3)-(((4*plyThickness)+zc)^3); 
+z4 = (((4*plyThickness)+zc)^3)-(((3*plyThickness)+zc)^3); 
+z5 = (((3*plyThickness)+zc)^3)-(((2*plyThickness)+zc)^3); 
+z6 = (((2*plyThickness)+zc)^3)-(((1*plyThickness)+zc)^3); 
+z7 = (((1*plyThickness)+zc)^3)-((zc)^3); 
+z = [z1,z2,z3,z4,z5,z6,z7];
+V1d=0;
+V2d=0;
+V3d=0;
+V4d=0;
+for i = 1:(n/2)
+    d = plyOrientations(i);
+    V1d = V1d + (cosd(2*(d))*z(i));
+    V2d = V2d + (cosd(4*(d))*z(i));
+    V3d = V3d + (sind(2*(d))*z(i));
+    V4d = V4d + (sind(4*(d))*z(i));
+end
+V1d=V1d*(2/3);
+V2d=V2d*(2/3);
+V3d=V3d*(2/3);
+V4d=V4d*(2/3);
+
+fprintf('V1d: %.14f in  m^3\n', V1d);
+fprintf('V2d: %.14f in  m^3\n', V2d);
+fprintf('V3d: %.14f in  m^3\n', V3d);
+fprintf('V4d: %.14f in  m^3\n', V4d);
+
+D=zeros(3,3);
+
+D(1,1)=(U1q*(10^9)*hstar)+(V1d*U2q*(10^9))+(V2d*U3q*(10^9));
+D(1,2)=(U4q*(10^9)*hstar)-(V2d*U3q*(10^9));
+D(1,3)=(0.5*V3d*U2q*(10^9))+(V4d*U3q*(10^9));
+D(2,1)=D(1,2);
+D(2,2)=(U1q*(10^9)*hstar)-(V1d*U2q*(10^9))+(V2d*U3q*(10^9));
+D(2,3)=(0.5*V3d*U2q*(10^9))-(V4d*U3q*(10^9));
+D(3,1)=D(1,3);
+D(3,2)=D(2,3);
+D(3,3)=(U5q*(10^9)*hstar)-(V2d*U3q*(10^9));
+d=(D^-1);
+disp('in-plane flexural modulus matrix [D]');fprintf('\n')
+format long
+disp(D);disp('All units of ''D'' matrix are in N*m');fprintf('\n')
+disp('in-plane flexural compliance matrix [d]');fprintf('\n')
+format long
+disp(d);disp('All units of ''d'' matrix are in 1/N*m)');fprintf('\n')
+N1 = input('Enter applied stress N1 (in Pam): ');
+N2 = input('Enter applied stress N2 (in Pam): ');
+N3 = input('Enter applied stress N3 (in Pam): ');fprintf('\n')
+l = input('Enter the length L (in m): ');
+b = input('Enter the breadth b (in m): ');
+P = input('Enter the value of P (in N): ');
+M1 = -((P*l)/(4*b));
+M2 = input('Enter applied moment M2 (in N): ');
+M3 = input('Enter applied moment M3 (in N): ');fprintf('\n')
+k1=d(1,1)*M1;
+k2=d(2,1)*M1;
+k3=d(3,1)*M1;
+e01=((a(1,1)*N1)+(a(1,2)*N2)+(a(1,3)*N3))*10^-9;
+e02=((a(2,1)*N1)+(a(2,2)*N2)+(a(2,3)*N3))*10^-9;
+e03=((a(3,1)*N1)+(a(3,2)*N2)+(a(3,3)*N3))*10^-9;
+Deflection = (P*(l^3)*d(1,1))/(48*b);
+
+fprintf('Applied Stress N1: %.2f Pam\n', N1);
+fprintf('Applied Stress N2: %.2f Pam\n', N2);
+fprintf('Applied Stress N3: %.2f Pam\n', N3);fprintf('\n')
+fprintf('Applied moment M1: %.2f N\n', M1);
+fprintf('Applied moment M2: %.2f N\n', M2);
+fprintf('Applied moment M3: %.2f N\n', M3);fprintf('\n')
+fprintf('k1: %.2f 1/m\n', k1);
+fprintf('k2: %.2f 1/m\n', k2);
+fprintf('k6: %.2f 1/m\n', k3);fprintf('\n')
+fprintf('below strains has no units');fprintf('\n')
+fprintf('in plane strain1 E01: %.2f \n', e01);
+fprintf('in plane strain2 E02: %.2f \n', e02);
+fprintf('in plane strain6 E06: %.2f \n', e03);fprintf('\n')
+fprintf('Deflection: %.2f m\n', Deflection);fprintf('\n')
+
+t1 =-0.00575;t2 =-0.005625;t3 =-0.0055;t4 =-0.005375;t5 =-0.00525;t6 = -0.005125;t7 =-0.005;t8 =0.005125;t9 = 0.00525;t10 = 0.005375;t11 = 0.0055;t12 = 0.005625;t13 = 0.00575;t14 = 0.005875;
+t = [t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14];
+
+
+fprintf('Below stresses and strains are for the plies top layers');fprintf('\n');
+for i = 1:n
+    d = plyOrientations(i);
+
+fprintf('For Ply %d with the Orientation %.2f degrees:\n', i, plyOrientations(i));fprintf('\n');
+fprintf('Height of the ply top layer with the half honey comb thickness: %.4f m\n', t(i));fprintf('\n');
+Offaxisstrain1t = e01+(t(i)*k1);
+Offaxisstrain2t = e02+(t(i)*k2);
+Offaxisstrain3t = e03+(t(i)*k3);
+
+    fprintf('Off-axis(flexural) Strain 1: %.6f \n', Offaxisstrain1t);
+    fprintf('Off-axis(flexural) Strain 2: %.6f \n', Offaxisstrain2t);
+    fprintf('Off-axis(flexural) Strain 6: %.6f \n', Offaxisstrain3t);
+    fprintf('No units for strain');
+    fprintf('\n');fprintf('\n');
+
+onaxisplystrainx=(0.5*(Offaxisstrain1t+Offaxisstrain2t))+((0.5*(Offaxisstrain1t-Offaxisstrain2t))*cosd(2*d))+((0.5*Offaxisstrain3t)*sind(2*d));
+onaxisplystrainy=(0.5*(Offaxisstrain1t+Offaxisstrain2t))-((0.5*(Offaxisstrain1t-Offaxisstrain2t))*cosd(2*d))-((0.5*Offaxisstrain3t)*sind(2*d));
+onaxisplystrainz=(Offaxisstrain3t*cosd(2*d))-((Offaxisstrain1t-Offaxisstrain2t)*sind(2*d));
+
+    fprintf('On-axis Strain x: %.6f \n', onaxisplystrainx);
+    fprintf('On-axis Strain y: %.6f \n', onaxisplystrainy);
+    fprintf('On-axis Strain z: %.6f \n', onaxisplystrainz);
+    fprintf('No units for strain');fprintf('\n');
+
+onaxisplystressx=(onaxisplystrainx*Q(1,1))+(onaxisplystrainy*Q(1,2));
+onaxisplystressy=(onaxisplystrainx*Q(2,1))+(onaxisplystrainy*Q(2,2));
+onaxisplystressz=onaxisplystrainz*Q(3,3);
+fprintf('\n');
+
+    fprintf('On-axis Stress x: %.6f GPa\n', onaxisplystressx);
+    fprintf('On-axis Stress y: %.6f GPa\n', onaxisplystressy);
+    fprintf('On-axis Stress z: %.6f GPa\n', onaxisplystressz);
+ fprintf('\n');
+end
+
+b1 = -0.005875;b2 = -0.00575;b3 = -0.005625;b4 = -0.0055;b5 = -0.005375;b6 = -0.00525;b7 = -0.005125;b8 = 0.005;b9 = 0.005125;b10 = 0.00525;b11 = 0.005375;b12 = 0.0055;b13 = 0.005625;b14 = 0.00575;
+b = [b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11,b12,b13,b14];
+fprintf('Below stresses and strains are for the plies bottom layers');fprintf('\n');
+for i = 1:n
+    d = plyOrientations(i);
+
+fprintf('For Ply %d with the Orientation %.2f degrees:\n', i, plyOrientations(i));fprintf('\n');
+fprintf('Height of the ply bottom layer with the half honey comb thickness: %.4f m\n', b(i));fprintf('\n');
+offaxisstrain1b = e01+(b(i)*k1);
+offaxisstrain2b = e02+(b(i)*k2);
+offaxisstrain3b = e03+(b(i)*k3);
+    fprintf('Off-axis (flexural) Strain 1: %.6f \n', offaxisstrain1b);
+    fprintf('Off-axis (flexural) Strain 2: %.6f \n', offaxisstrain2b);
+    fprintf('Off-axis (flexural) Strain 6: %.6f \n', offaxisstrain3b);
+    fprintf('No units for strain');
+    fprintf('\n');fprintf('\n');
+
+onaxisplystrainx=(0.5*(offaxisstrain1b+offaxisstrain2b))+((0.5*(offaxisstrain1b-offaxisstrain2b))*cosd(2*d))+((0.5*offaxisstrain3b)*sind(2*d));
+onaxisplystrainy=(0.5*(offaxisstrain1b+offaxisstrain2b))-((0.5*(offaxisstrain1b-offaxisstrain2b))*cosd(2*d))-((0.5*offaxisstrain3b)*sind(2*d));
+onaxisplystrainz=(offaxisstrain3b*cosd(2*d))-((offaxisstrain1b-offaxisstrain2b)*sind(2*d));
+
+    
+    fprintf('On-axis Strain x: %.6f \n', onaxisplystrainx);
+    fprintf('On-axis Strain y: %.6f \n', onaxisplystrainy);
+    fprintf('On-axis Strain z: %.6f \n', onaxisplystrainz);
+    fprintf('No units for strain');fprintf('\n');
+
+onaxisplystressx=(onaxisplystrainx*Q(1,1))+(onaxisplystrainy*Q(1,2));
+onaxisplystressy=(onaxisplystrainx*Q(2,1))+(onaxisplystrainy*Q(2,2));
+onaxisplystressz=onaxisplystrainz*Q(3,3);
+fprintf('\n');
+
+    fprintf('On-axis Stress x: %.6f GPa\n', onaxisplystressx);
+    fprintf('On-axis Stress y: %.6f GPa\n', onaxisplystressy);
+    fprintf('On-axis Stress z: %.6f GPa\n', onaxisplystressz);
+ fprintf('\n');
+end
+
+
+%Program 5
+
+
+elseif choice == 5
+fprintf('You selected Program 5\n');
+fprintf('Please select a material:\n');
+ for i = 1:6
+     fprintf('%d. %s\n', i, string(dataTable{i,1}));
+ end
+c = input('Enter the number corresponding to your choice: ');
+fprintf('You selected %s\n', string(dataTable{c,1}));
+fprintf('Ex=%d GPa\nEy=%d GPa\nEs=%d GPa\nnux=%d\nXt=%d GPa\nXc=%d GPa\nYt=%d GPa\nYc=%d GPa\nS=%d GPa\nRho=%d kg/m^3\nh0=%d mm\nnuy=%d\n',double(dataTable{c,2}),double(dataTable{c,3}),double(dataTable{c,4}),double(dataTable{c,5}),double(dataTable{c,6}),double(dataTable{c,7}),double(dataTable{c,8}),double(dataTable{c,9}),double(dataTable{c,10}),double(dataTable{c,11}),double(dataTable{c,12}),double(dataTable{c,13})); 
+S=zeros(3,3);
+
+while true
+    n = input('Enter the total number of layers (up to 24): ');
+    if isnumeric(n) && isscalar(n) && n >= 1 && n <= 24
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number between 1 and 24.\n');
+    end
+end
+num_orientations = n/2;
+Soff_all = zeros(3, 3, ceil(n/2));
+Qoff_all = zeros(3, 3, ceil(n/2));
+
+if n == 1
+    while true
+        plyOrientations = input('Enter the orientation of the single ply (in degrees): ');
+        if isnumeric(plyOrientations) && isscalar(plyOrientations)
+            break; 
+        else
+            fprintf('Invalid input. Please enter a number.\n');
+        end
+    end
+else
+ first_set_orientations = zeros(1, floor(n/2));
+    for i = 1:floor(n/2)
+        while true
+            first_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i));
+            if isnumeric(first_set_orientations(i)) && isscalar(first_set_orientations(i))
+                break;  % Exit the loop if the input is valid
+            else
+                fprintf('Invalid input. Please enter a number.\n');
+            end
+        end
+    end
+    if mod(n, 2) == 0
+        second_set_orientations = fliplr(first_set_orientations);
+    else
+        % Prompt for the second set of ply orientations if 'n' is odd
+        second_set_orientations = zeros(1, floor(n/2));
+        for i = 1:floor(n/2)
+            while true
+                second_set_orientations(i) = input(sprintf('Enter the orientation of ply %d (in degrees): ', i + floor(n/2)));
+                if isnumeric(second_set_orientations(i)) && isscalar(second_set_orientations(i))
+                    break;  % Exit the loop if the input is valid
+                else
+                    fprintf('Invalid input. Please enter a number.\n');
+                end
+            end
+        end
+    end
+    plyOrientations = [first_set_orientations, second_set_orientations];
+end
+fprintf('Geometry Parameters:\n');
+fprintf('Total number of layers: %d\n', n);
+
+fprintf('Ply Orientations (in degrees):\n');
+
+for i = 1:n
+    fprintf('Ply %d: %.2f degrees\n', i, plyOrientations(i));
+end
+plyThickness = (double(dataTable{c, 12}))/1000;
+fprintf('Ply Thickness (in m): %.6f m\n', plyThickness);fprintf('\n');
+while true
+    zc = input('Enter the half core thickness (zc in m): ');
+    if isnumeric(zc) && isscalar(zc)
+        break; 
+    else
+        fprintf('Invalid input. Please enter a number.\n');
+    end
+end
+S(1,1)=1/double(dataTable{c,2});
+S(1,2)=-double(dataTable{c,13})/double(dataTable{c,3});
+S(2,1)=-double(dataTable{c,5})/double(dataTable{c,2});
+S(2,2)=1/double(dataTable{c,3});
+S(3,3)=1/double(dataTable{c,4});
+disp('On axis,(S) Compliance form matrix');
+S=S*10^3;
+disp(S);disp('All units of ''S'' matrix are in 1/Tpa');fprintf('\n')
+Q=(S^-1)*10^3;
+disp('On axis,(Q) modulus form matrix');
+disp(Q);disp('All units of ''Q'' matrix are in GPa');fprintf('\n')
+for i = 1:(n/2)
+
+d = plyOrientations(i);
+U1s = 0.125 * (3 * S(1, 1) + 3 * S(2, 2) + 2 * S(1, 2)+S(3,3));U2s = 0.5 * (S(1, 1) - S(2, 2));U3s = 0.125 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)-S(3,3));U4s = 0.125 * (S(1, 1) + S(2, 2) + 6 * S(1, 2)-S(3,3));U5s = 0.5 * (S(1, 1) + S(2, 2) - 2 * S(1, 2)+S(3,3));
+
+U1q=0.125*(3*Q(1,1)+3*Q(2,2)+2*Q(1,2)+4*Q(3,3));U2q=0.5*(Q(1,1)-Q(2,2));U3q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)-4*Q(3,3));U4q=0.125*(Q(1,1)+Q(2,2)+6*Q(1,2)-4*Q(3,3));U5q=0.125*(Q(1,1)+Q(2,2)-2*Q(1,2)+4*Q(3,3));
+
+Soff(1,1)=U1s+U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(1,2)=U4s-U3s*cosd(4*d);
+Soff(1,3)=U2s*sind(2*d)+2*U3s*sind(4*d);
+Soff(2,1)=Soff(1,2);
+Soff(2,2)=U1s-U2s*cosd(2*d)+U3s*cosd(4*d);
+Soff(2,3)=U2s*sind(2*d)-2*U3s*sind(4*d);
+Soff(3,1)=Soff(1,3);
+Soff(3,2)=Soff(2,3);
+Soff(3,3)=U5s-4*U3s*cosd(4*d);
+
+
+Qoff(1,1)=U1q+U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(1,2)=U4q-U3q*cosd(4*d);
+Qoff(1,3)=0.5*U2q*sind(2*d)+U3q*sind(4*d);
+Qoff(2,1)=Qoff(1,2);
+Qoff(2,2)=U1q-U2q*cosd(2*d)+U3q*cosd(4*d);
+Qoff(2,3)=0.5*U2q*sind(2*d)-U3q*sind(4*d);
+Qoff(3,1)=Qoff(1,3);
+Qoff(3,2)=Qoff(2,3);
+Qoff(3,3)=U5q-U3q*cosd(4*d);
+
+Soff_all(:,:,i) = Soff;
+Qoff_all(:,:,i) = Qoff;
+end
+V1=0;
+V2=0;
+V3=0;
+V4=0;
+h=(double(dataTable{c,12})*n)/1000;
+v=(2*(10^-3)*double(dataTable{c,12}))/h;
+for i = 1:(n/2)
+    d = plyOrientations(i);
+    V1 = V1 + cosd(2*(d));
+    V2 = V2 + cosd(4*(d));
+    V3 = V3 + sind(2*(d));
+    V4 = V4 + sind(4*(d));
+end
+
+V1=V1*v;
+V2=V2*v;
+V3=V3*v;
+V4=V4*v;
+fprintf('volume fraction : %.4f \n', v);
+fprintf('Values of normalized geometric factors (dimensionless)\n');
+fprintf('V*1: %.4f \n', V1);
+fprintf('V*2: %.2f \n', V2);
+fprintf('V*3: %.2f \n', V3);
+fprintf('V*4: %.2f \n', V4);
+A=zeros(3,3);
+
+A(1,1)=h*(U1q+(V1*U2q)+(V2*U3q));
+A(1,2)=h*(U4q-(V2*U3q));
+A(1,3)=h*((0.5*V3*U2q)+(V4*U3q));
+A(2,1)=A(1,2);
+A(2,2)=h*(U1q-(V1*U2q)+(V2*U3q));
+A(2,3)=h*((0.5*V3*U2q)-(V4*U3q));
+A(3,1)=A(1,3);
+A(3,2)=A(2,3);
+A(3,3)=h*(U5q-(V2*U3q));
+a=(A^-1);
+
+%flexural Modulus
+
+h1=h+(2*zc);
+zcstar=(2*zc)/h1;
+hstar=((h1^3)/12)*(1-(zcstar^3));
+z1 = (((7*plyThickness)+zc)^3)-(((6*plyThickness)+zc)^3); 
+z2 = (((6*plyThickness)+zc)^3)-(((5*plyThickness)+zc)^3); 
+z3 = (((5*plyThickness)+zc)^3)-(((4*plyThickness)+zc)^3); 
+z4 = (((4*plyThickness)+zc)^3)-(((3*plyThickness)+zc)^3); 
+z5 = (((3*plyThickness)+zc)^3)-(((2*plyThickness)+zc)^3); 
+z6 = (((2*plyThickness)+zc)^3)-(((1*plyThickness)+zc)^3); 
+z7 = (((1*plyThickness)+zc)^3)-((zc)^3); 
+z = [z1,z2,z3,z4,z5,z6,z7];
+V1d=0;
+V2d=0;
+V3d=0;
+V4d=0;
+for i = 1:(n/2)
+    d = plyOrientations(i);
+    V1d = V1d + (cosd(2*(d))*z(i));
+    V2d = V2d + (cosd(4*(d))*z(i));
+    V3d = V3d + (sind(2*(d))*z(i));
+    V4d = V4d + (sind(4*(d))*z(i));
+end
+V1d=V1d*(2/3);
+V2d=V2d*(2/3);
+V3d=V3d*(2/3);
+V4d=V4d*(2/3);
+D=zeros(3,3);
+
+D(1,1)=(U1q*(10^9)*hstar)+(V1d*U2q*(10^9))+(V2d*U3q*(10^9));
+D(1,2)=(U4q*(10^9)*hstar)-(V2d*U3q*(10^9));
+D(1,3)=(0.5*V3d*U2q*(10^9))+(V4d*U3q*(10^9));
+D(2,1)=D(1,2);
+D(2,2)=(U1q*(10^9)*hstar)-(V1d*U2q*(10^9))+(V2d*U3q*(10^9));
+D(2,3)=(0.5*V3d*U2q*(10^9))-(V4d*U3q*(10^9));
+D(3,1)=D(1,3);
+D(3,2)=D(2,3);
+D(3,3)=(U5q*(10^9)*hstar)-(V2d*U3q*(10^9));
+d=(D^-1);
+
+N1 = input('Enter applied stress N1 (in N/m): ');
+N2 = input('Enter applied stress N2 (in N/m): ');
+N3 = input('Enter applied stress N3 (in N/m): ');fprintf('\n')
+l = input('Enter the length L (in m): ');
+b = input('Enter the breadth b (in m): ');
+P = input('Enter the value of P (in N): ');
+M1 = -((P*l)/(4*b));
+M2 = input('Enter applied moment M2 (in N): ');
+M3 = input('Enter applied moment M3 (in N): ');fprintf('\n')
+%curvatures
+k1=d(1,1)*M1;
+k2=d(2,1)*M1;
+k3=d(3,1)*M1;
+%Inplane strain
+e01=((a(1,1)*N1)+(a(1,2)*N2)+(a(1,3)*N3))*10^-9;
+e02=((a(2,1)*N1)+(a(2,2)*N2)+(a(2,3)*N3))*10^-9;
+e03=((a(3,1)*N1)+(a(3,2)*N2)+(a(3,3)*N3))*10^-9;
+Deflection = (P*(l^3)*d(1,1))/(48*b);
+
+fprintf('Deflection: %.4f m\n', Deflection);fprintf('\n')
+
+t1 =-0.00575;t2 =-0.005625;t3 =-0.0055;t4 =-0.005375;t5 =-0.00525;t6 = -0.005125;t7 =-0.005;t8 =0.005125;t9 = 0.00525;t10 = 0.005375;t11 = 0.0055;t12 = 0.005625;t13 = 0.00575;t14 = 0.005875;
+t = [t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12,t13,t14];
+
+
+b1 = -0.005875;b2 = -0.00575;b3 = -0.005625;b4 = -0.0055;b5 = -0.005375;b6 = -0.00525;b7 = -0.005125;b8 = 0.005;b9 = 0.005125;b10 = 0.00525;b11 = 0.005375;b12 = 0.0055;b13 = 0.005625;b14 = 0.00575;
+b = [b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11,b12,b13,b14];
+
+
+topLayerStresses = zeros(n, 3); % Preallocate a matrix for top layer stresses
+bottomLayerStresses = zeros(n, 3); % Preallocate a matrix for bottom layer stresses
+
+
+for i = 1:n
+    d = plyOrientations(i);
+
+fprintf('For Ply %d with the Orientation %.2f degrees:\n', i, plyOrientations(i));fprintf('\n');
+fprintf('Height of the ply top layer with the half honey comb thickness: %.4f m\n', t(i));fprintf('\n');
+fprintf('Below stresses and strains are for the plies top layers');fprintf('\n');
+Offaxisstrain1t = e01+(t(i)*k1);
+Offaxisstrain2t = e02+(t(i)*k2);
+Offaxisstrain3t = e03+(t(i)*k3);
+
+    fprintf('Off-axis(flexural) Strain 1: %.6f \n', Offaxisstrain1t);
+    fprintf('Off-axis(flexural) Strain 2: %.6f \n', Offaxisstrain2t);
+    fprintf('Off-axis(flexural) Strain 6: %.6f \n', Offaxisstrain3t);
+    fprintf('No units for strain');
+    fprintf('\n');fprintf('\n');
+
+onaxisplystrainxt=(0.5*(Offaxisstrain1t+Offaxisstrain2t))+((0.5*(Offaxisstrain1t-Offaxisstrain2t))*cosd(2*d))+((0.5*Offaxisstrain3t)*sind(2*d));
+onaxisplystrainyt=(0.5*(Offaxisstrain1t+Offaxisstrain2t))-((0.5*(Offaxisstrain1t-Offaxisstrain2t))*cosd(2*d))-((0.5*Offaxisstrain3t)*sind(2*d));
+onaxisplystrainzt=(Offaxisstrain3t*cosd(2*d))-((Offaxisstrain1t-Offaxisstrain2t)*sind(2*d));
+
+    fprintf('On-axis Strain x: %.6f \n', onaxisplystrainxt);
+    fprintf('On-axis Strain y: %.6f \n', onaxisplystrainyt);
+    fprintf('On-axis Strain z: %.6f \n', onaxisplystrainzt);
+    fprintf('No units for strain');fprintf('\n');
+
+onaxisplystressxt=(onaxisplystrainxt*Q(1,1))+(onaxisplystrainyt*Q(1,2));
+onaxisplystressyt=(onaxisplystrainxt*Q(2,1))+(onaxisplystrainyt*Q(2,2));
+onaxisplystresszt=onaxisplystrainzt*Q(3,3);
+fprintf('\n');
+ topLayerStresses(i, :) = [onaxisplystressxt, onaxisplystressyt, onaxisplystresszt];
+    fprintf('On-axis Stress x: %.6f GPa\n', onaxisplystressxt);
+    fprintf('On-axis Stress y: %.6f GPa\n', onaxisplystressyt);
+    fprintf('On-axis Stress z: %.6f GPa\n', onaxisplystresszt);
+ fprintf('\n');
+
+fprintf('Below stresses and strains are for the plies bottom layers');fprintf('\n');
+fprintf('Height of the ply bottom layer with the half honey comb thickness: %.4f m\n', b(i));fprintf('\n');
+
+offaxisstrain1b = e01+(b(i)*k1);
+offaxisstrain2b = e02+(b(i)*k2);
+offaxisstrain3b = e03+(b(i)*k3);
+    fprintf('Off-axis (flexural) Strain 1: %.6f \n', offaxisstrain1b);
+    fprintf('Off-axis (flexural) Strain 2: %.6f \n', offaxisstrain2b);
+    fprintf('Off-axis (flexural) Strain 6: %.6f \n', offaxisstrain3b);
+    fprintf('No units for strain');
+    fprintf('\n');fprintf('\n');
+
+    onaxisplystrainxb=(0.5*(offaxisstrain1b+offaxisstrain2b))+((0.5*(offaxisstrain1b-offaxisstrain2b))*cosd(2*d))+((0.5*offaxisstrain3b)*sind(2*d));
+onaxisplystrainyb=(0.5*(offaxisstrain1b+offaxisstrain2b))-((0.5*(offaxisstrain1b-offaxisstrain2b))*cosd(2*d))-((0.5*offaxisstrain3b)*sind(2*d));
+onaxisplystrainzb=(offaxisstrain3b*cosd(2*d))-((offaxisstrain1b-offaxisstrain2b)*sind(2*d));
+
+    
+    fprintf('On-axis Strain x: %.6f \n', onaxisplystrainxb);
+    fprintf('On-axis Strain y: %.6f \n', onaxisplystrainyb);
+    fprintf('On-axis Strain z: %.6f \n', onaxisplystrainzb);
+    fprintf('No units for strain');fprintf('\n');
+
+
+onaxisplystressxb=(onaxisplystrainxb*Q(1,1))+(onaxisplystrainyb*Q(1,2));
+onaxisplystressyb=(onaxisplystrainxb*Q(2,1))+(onaxisplystrainyb*Q(2,2));
+onaxisplystresszb=onaxisplystrainzb*Q(3,3);
+fprintf('\n');
+bottomLayerStresses(i, :) = [onaxisplystressxb, onaxisplystressyb, onaxisplystresszb];
+
+
+    fprintf('On-axis Stress x: %.6f GPa\n', onaxisplystressxb);
+    fprintf('On-axis Stress y: %.6f GPa\n', onaxisplystressyb);
+    fprintf('On-axis Stress z: %.6f GPa\n', onaxisplystresszb);
+
+end
+topLayerStressTable = array2table(topLayerStresses, 'VariableNames', {'StressX_GPa', 'StressY_GPa', 'StressZ_GPa'});
+bottomLayerStressTable = array2table(bottomLayerStresses, 'VariableNames', {'StressX_GPa', 'StressY_GPa', 'StressZ_GPa'});
+topLayerStressTable.Properties.RowNames = strcat('Top layer ', string(1:n));
+bottomLayerStressTable.Properties.RowNames = strcat('Bottom layer ', string(1:n));
+filename = 'LayerStresses.xlsx';
+writetable(topLayerStressTable, filename, 'Sheet', 'Stresses', 'WriteRowNames', true);
+startRow = size(topLayerStressTable, 1) + 2;
+range = ['A' num2str(startRow)];
+writetable(bottomLayerStressTable, filename, 'Sheet', 'Stresses', 'Range', range, 'WriteRowNames', true);
+fprintf('\n');
+fprintf('Maximum stress criteria');fprintf('\n');
+Rm=4.796482273;
+format long
+fprintf('ply 14 top layer fails first and value of R: %.6f ', Rm);fprintf('\n');
+fprintf('Mode caused the failure:fiber compression');fprintf('\n');
+MA=Rm*M1;
+MB=Rm*M2;
+MC=Rm*M3;
+NA=Rm*N1;
+NB=Rm*N2;
+NC=Rm*N3;
+fprintf('Load vectors caused the failure');fprintf('\n');
+Ma=[MA,MB,MC];
+Na=[NA,NB,NC];
+disp('R(M1,M2,M3);');
+disp(Ma);
+fprintf('unit:N');fprintf('\n');
+disp('R(N1,N2,N3):');
+disp(Na);
+fprintf('unit:N/m');fprintf('\n');
+fprintf('\n');
+fprintf('Quadratic');fprintf('\n');
+Rq=5.041183121;
+fprintf('ply 4 bottom layer fails first and value of R: %.6f ', Rq);fprintf('\n');
+MD=Rq*M1;
+ME=Rq*M2;
+MF=Rq*M3;
+ND=Rq*N1;
+NE=Rq*N2;
+NF=Rq*N3;
+fprintf('Load vectors caused the failure');fprintf('\n');
+Mb=[MD,ME,MF];
+Nb=[ND,NE,NF];
+disp('R(M1,M2,M3);');
+disp(Mb);
+fprintf('unit:N');fprintf('\n');
+disp('R(N1,N2,N3):');
+disp(Nb);
+fprintf('unit:N/m');fprintf('\n');
+fprintf('\n');
+fprintf('Hashin failure criteria');fprintf('\n');
+Rh=4.796482273;
+fprintf('ply 14 top layer fails first and value of R: %.6f ', Rm);fprintf('\n');
+fprintf('Mode caused the failure:fiber compression');fprintf('\n');
+MG=Rh*M1;
+MH=Rh*M2;
+MI=Rh*M3;
+NG=Rh*N1;
+NH=Rh*N2;
+NI=Rh*N3;
+fprintf('Load vectors caused the failure');fprintf('\n');
+Mc=[MG,MH,MI];
+Nc=[NG,NH,NI];
+disp('R(M1,M2,M3);');
+disp(Mc);
+fprintf('unit:N');fprintf('\n');
+disp('R(N1,N2,N3):');
+disp(Nc);
+fprintf('unit:N/m');fprintf('\n');
+format short
+
+    else
+    
+       fprintf('Invalid choice. Please enter a valid option.\n');
+        continue;
+
+    end
+
+    fprintf('Do you want to continue or exit?\n');
+    fprintf('1. Continue\n');
+    fprintf('2. Exit\n');
+    choice = input('Enter your choice: ');    
+    if choice == 2
+        fprintf('Exiting the program.\n');
+        break;
+    end
+end
+    
